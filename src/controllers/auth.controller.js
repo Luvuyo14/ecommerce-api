@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
 // How many times bcrypt "scrambles" the password.
@@ -7,6 +8,11 @@ const SALT_ROUNDS = 10;
 
 // A simple check that an email looks like "something@something.something"
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// A fake scrambled password. We use it at login when the email does not exist,
+// so the server takes about the same time to answer either way.
+// (Otherwise an attacker could measure the speed to find which emails exist.)
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', SALT_ROUNDS);
 
 async function signup(req, res) {
   try {
@@ -70,4 +76,60 @@ async function signup(req, res) {
   }
 }
 
-module.exports = { signup };
+async function login(req, res) {
+  try {
+    const { email, password } = req.body ?? {};
+
+    // 1. Both must be text. If not, the request is badly made.
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res
+        .status(400)
+        .json({ message: 'Please send both email and password.' });
+    }
+
+    // 2. Look for the user (same tidy-up as signup)
+    const cleanEmail = email.trim().toLowerCase();
+    const result = await pool.query(
+      'SELECT id, email, password_hash, role FROM users WHERE email = $1',
+      [cleanEmail]
+    );
+    const user = result.rows[0]; // undefined if nobody has this email
+
+    // 3. Compare the typed password with the saved scramble.
+    //    If there is no user, we still compare against the dummy hash (see above).
+    const passwordIsCorrect = await bcrypt.compare(
+      password,
+      user ? user.password_hash : DUMMY_HASH
+    );
+
+    // 4. One vague message for BOTH "no such email" and "wrong password".
+    //    This way attackers cannot find out which emails have accounts.
+    if (!user || !passwordIsCorrect) {
+      return res
+        .status(401)
+        .json({ message: 'Invalid email or password.' });
+    }
+
+    // 5. Make the wristband (JWT).
+    //    sub = "subject" = who the token is about (must be text).
+    const token = jwt.sign(
+      { sub: String(user.id), role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+    );
+
+    // 6. Send the wristband back with a few safe details. Never the hash.
+    return res.status(200).json({
+      message: 'Login successful.',
+      token,
+      user: { id: user.id, email: user.email, role: user.role },
+    });
+  } catch (error) {
+    console.error('Login error:', error.message);
+    return res
+      .status(500)
+      .json({ message: 'Something went wrong. Please try again later.' });
+  }
+}
+
+module.exports = { signup, login };
