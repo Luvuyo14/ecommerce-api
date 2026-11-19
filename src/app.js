@@ -3,6 +3,7 @@ const pool = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const productRoutes = require('./routes/products.routes');
+const cartRoutes = require('./routes/cart.routes');
 
 const app = express();
 
@@ -35,6 +36,9 @@ app.use('/admin', adminRoutes);
 
 // Everything in products.routes.js starts with /products (public)
 app.use('/products', productRoutes);
+
+// Everything in cart.routes.js starts with /cart (logged-in users only)
+app.use('/cart', cartRoutes);
 
 // Safety net 1: no route matched, so answer with JSON instead of an HTML page
 app.use((req, res) => {
