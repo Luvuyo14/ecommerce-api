@@ -36,4 +36,23 @@ app.use('/admin', adminRoutes);
 // Everything in products.routes.js starts with /products (public)
 app.use('/products', productRoutes);
 
+// Safety net 1: no route matched, so answer with JSON instead of an HTML page
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found.' });
+});
+
+// Safety net 2: something threw an error and nobody caught it.
+// (Express knows this is an error handler because it has FOUR inputs.)
+app.use((err, req, res, next) => {
+  // Broken JSON in the request body, for example a missing quote
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ message: 'The request body is not valid JSON.' });
+  }
+
+  console.error('Unexpected error:', err.message);
+  res
+    .status(500)
+    .json({ message: 'Something went wrong. Please try again later.' });
+});
+
 module.exports = app;
