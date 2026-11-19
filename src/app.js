@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
+const productRoutes = require('./routes/products.routes');
 
 const app = express();
 
@@ -31,5 +32,8 @@ app.use('/auth', authRoutes);
 
 // Everything in admin.routes.js starts with /admin (admins only)
 app.use('/admin', adminRoutes);
+
+// Everything in products.routes.js starts with /products (public)
+app.use('/products', productRoutes);
 
 module.exports = app;
