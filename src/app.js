@@ -1,9 +1,12 @@
 const express = require('express');
 const pool = require('./config/db');
+const { authenticate } = require('./middleware/auth');
+const { checkout } = require('./controllers/orders.controller');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const productRoutes = require('./routes/products.routes');
 const cartRoutes = require('./routes/cart.routes');
+const orderRoutes = require('./routes/orders.routes');
 
 const app = express();
 
@@ -39,6 +42,12 @@ app.use('/products', productRoutes);
 
 // Everything in cart.routes.js starts with /cart (logged-in users only)
 app.use('/cart', cartRoutes);
+
+// Checkout: turn my cart into an order (logged-in users only)
+app.post('/checkout', authenticate, checkout);
+
+// Everything in orders.routes.js starts with /orders (logged-in users only)
+app.use('/orders', orderRoutes);
 
 // Safety net 1: no route matched, so answer with JSON instead of an HTML page
 app.use((req, res) => {
