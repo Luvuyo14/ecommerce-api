@@ -30,3 +30,28 @@ CREATE TABLE IF NOT EXISTS cart_items (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, product_id)
 );
+
+-- Orders: one row per checkout (the "receipt")
+CREATE TABLE IF NOT EXISTS orders (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  status      VARCHAR(20) NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'paid', 'failed', 'cancelled')),
+  total_cents BIGINT NOT NULL CHECK (total_cents >= 0),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Makes "show me this user's orders" fast
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id);
+
+-- Order items: what was bought, frozen at the moment of checkout
+CREATE TABLE IF NOT EXISTS order_items (
+  id               SERIAL PRIMARY KEY,
+  order_id         INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  product_id       INTEGER NOT NULL REFERENCES products(id),
+  product_name     VARCHAR(200) NOT NULL,
+  unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
+  quantity         INTEGER NOT NULL CHECK (quantity >= 1),
+  UNIQUE (order_id, product_id)
+);
